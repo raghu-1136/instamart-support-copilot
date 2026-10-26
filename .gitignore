@@ -1,0 +1,6 @@
+env/
+__pycache__/
+test_notebook.ipynb
+notebook/
+data/raw/.ipynb_checkpoints/
+
