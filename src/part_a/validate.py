@@ -1,4 +1,9 @@
 import pandas as pd
+import sqlite3 as sql
+
+conn = sql.connect("data/instamart.db")
+assert pd.read_sql_query("SELECT COUNT(*) AS n FROM orders", conn)["n"][0] == 12309
+conn.close()
 
 customers = pd.read_csv("data/clean/customers.csv")
 orders = pd.read_csv("data/clean/orders.csv")
@@ -16,14 +21,14 @@ assert customers["age"].between(18, 60).all()
 assert len(orders) == 12309, f"expected 12309 orders, got {len(orders)}"
 
 completed = orders["status"] == "completed"
-assert completed.sum() == 11110
-assert (~completed).sum() == 1199
-
-completed = orders["status"] == "completed"
 cancelled = orders["status"] == "cancelled"
 
 assert completed.sum() == 11110
 assert cancelled.sum() == 1199
+
+assert orders["order_id"].is_unique
+assert (orders["status"] == "pending").sum() == 0
+assert orders["order_amount"].notna().all()
 
 assert orders.loc[completed, "delivery_minutes"].notna().all()
 assert orders.loc[cancelled, "delivery_minutes"].isna().sum() == 1199
