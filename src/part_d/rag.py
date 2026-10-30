@@ -14,6 +14,7 @@ def load_docs():
                 docs[fn] = f.read()
     return docs
 
+#  Sliding-window chunking (40 words with 10-word overlap); overlap preserves contextual meaning across boundary sentences
 def chunk_words(text, size=40, overlap=10):
     words = text.split()
     step = size - overlap
@@ -41,6 +42,7 @@ def build_index(size=40, overlap=10):
     matrix = vectorizer.fit_transform([c["text"] for c in chunks])
     return chunks, vectorizer, matrix
 
+# Rank policy chunks by cosine similarity over TF-IDF vectors; returns top-k most relevant passages
 def retrieve(query, k=3, index=None):
     chunks, vectorizer, matrix = index or DEFAULT_INDEX
     scores = cosine_similarity(vectorizer.transform([query]), matrix)[0]
@@ -99,5 +101,3 @@ if __name__ == "__main__":
     res0 = evaluate(index=build_index(40, 0))
     print(res0[:3])
     assert len(res0[3]) == 2
-
-

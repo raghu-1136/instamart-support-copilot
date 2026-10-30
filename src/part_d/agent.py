@@ -43,7 +43,7 @@ def _loop(run_id, scenario_id, messages, steps, tokens_used, llm_calls,
     start = time.monotonic()
 
     while llm_calls < max_iterations:
-        if time.monotonic() - start >= time_limit_seconds:
+        if time.monotonic() - start >= time_limit_seconds: # Runtime timeout safety check: halts before calling LLM if elapsed monotonic time reaches or exceeds time_limit_seconds
             return _fallback("FALLBACK_TIMEOUT", scenario_id, steps, llm_calls,
                              tokens_used, f"Time limit of {time_limit_seconds}s reached")
 
@@ -72,7 +72,7 @@ def _loop(run_id, scenario_id, messages, steps, tokens_used, llm_calls,
                       "observation": result})
         executed.append(tc.name)
 
-        _save_checkpoint(run_id, scenario_id, messages, tokens_used,
+        _save_checkpoint(run_id, scenario_id, messages, tokens_used,   # Persist state snapshot after every tool execution to enable crash-and-resume recovery without duplicate refund actions
                          llm_calls, steps, executed)
         if crash_after_tools is not None and len(executed) >= crash_after_tools:
             raise SimulatedCrash(f"simulated crash after {len(executed)} tools")
@@ -90,7 +90,7 @@ def run_agent(user_message, scenario_id, max_iterations=6, token_limit=6000,
                  max_iterations, token_limit, time_limit_seconds,
                  crash_after_tools)
 
-
+# Resume interrupted agent run by restoring conversation messages and continuing loop from the last completed tool step
 def resume_agent(run_id, max_iterations=6, token_limit=6000,
                  time_limit_seconds=10):
     with open(f"{STATE_DIR}/{run_id}.json", encoding="utf-8") as f:

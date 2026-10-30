@@ -32,6 +32,7 @@ def get_order(order_id):
 def search_policy(query):
     return {"results": retrieve(query)}
 
+# Policy rule: Only completed orders delivered in >45 minutes qualify for late-delivery refund (100% amount)
 def calculate_refund(order_amount, delivery_minutes):
     if delivery_minutes is None or delivery_minutes <= 45:
         return {"refund_inr": 0}
@@ -53,7 +54,7 @@ def _log(tool, order_id, refund_inr):
 def issue_refund(order_id, refund_inr):
     _log("issue_refund", order_id, refund_inr)
     return {"refund_inr": refund_inr}
-
+# Automatic refund issuance threshold is INR 1000; amounts strictly above INR 1000 must escalate to human review
 def escalate_to_human(order_id, refund_inr):
     _log("escalate_to_human", order_id, refund_inr)
     return {"refund_inr": refund_inr}
@@ -99,7 +100,7 @@ TOOL_MAP = {
 assert set(TOOL_MAP) == {t["name"] for t in TOOLS_SPEC}
 
 if __name__ == "__main__":
-    print(get_order("ORD-999999")) 
+    print(get_order("ORD-999999"))
     print(get_order("ORD-100004"))
     print(calculate_refund(285.0, 50))
     print(calculate_refund(285.0, 45))

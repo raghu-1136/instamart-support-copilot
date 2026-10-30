@@ -22,6 +22,7 @@ end = pd.Timestamp("2025-10-01")
 completed = orders[orders["status"] == "completed"].copy()
 completed["order_ts"] = pd.to_datetime(completed["order_ts"])
 
+# Strictly filter orders before 2025-09-01 cutoff to prevent future-data leakage into churn features
 before = completed[completed["order_ts"] < cutoff].copy()
 september = completed[(completed["order_ts"] >= cutoff) & (completed["order_ts"] < end)]
 
@@ -36,8 +37,8 @@ assert cohort["lapsed"].sum() == 443
 
 orders["order_ts"] = pd.to_datetime(orders["order_ts"])
 
-print(cohort.shape) 
-print(cohort.isna().sum()) 
+print(cohort.shape)
+print(cohort.isna().sum())
 
 order_feats = before.groupby("customer_id").agg(
     last_ts=("order_ts", "max"),
@@ -93,6 +94,7 @@ preprocess = ColumnTransformer([
     ("cat", OneHotEncoder(drop="first", handle_unknown="ignore"), cat_cols),
 ])
 
+# Fit scalers and OneHotEncoders exclusively on training data (X_train) to avoid test-set data snooping
 preprocess.fit(X_train)
 scaler = preprocess.named_transformers_["num"]
 freq_idx = num_cols.index("frequency")
@@ -100,7 +102,7 @@ print("scaler learned frequency mean:", scaler.mean_[freq_idx])
 print("full-cohort frequency mean:", cohort["frequency"].mean())
 
 assert X.isna().sum().sum() == 0
-print(y_train.value_counts()) 
+print(y_train.value_counts())
 
 lr_pipe = Pipeline([("prep", preprocess),
                     ("model", LogisticRegression(max_iter=1000))])
@@ -129,6 +131,7 @@ for name, g in [("LogReg", lr_grid), ("RandomForest", rf_grid)]:
 final_f1 = f1_score(y_test, lr_grid.best_estimator_.predict(X_test), zero_division=0)
 assert final_f1 >= 0.55
 
+# Oversample lapsed minority class only within the training partition (570/570 balanced); test partition remains untouched
 lapsed_rows = X_train[y_train == 1]
 extra = lapsed_rows.sample(n=570 - 354, replace=True, random_state=42)
 
@@ -167,6 +170,7 @@ print("Reload check passed: predictions identical")
 proba = final_model.predict_proba(X_test)[:, 1]
 res = pd.DataFrame({
     "customer_id": cohort.loc[X_test.index, "customer_id"].values,
+# Disclaimer: Premium status is derived from whole-window RFM and is post-hoc; retention list is illustrative
     "lapse_probability": proba,
     "actually_lapsed": y_test.values,
 })

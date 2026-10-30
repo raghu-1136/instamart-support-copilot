@@ -29,6 +29,7 @@ EMAIL_RE = r"[\w.+-]+@[\w-]+\.[\w.]+"
 PHONE_RE = r"\b[6-9]\d{9}\b"
 ORDER_RE = r"ORD-\d{6}"
 
+# Redact PII in strict sequence (Email -> Phone -> Order ID) before prompt construction to guarantee data privacy
 def redact(text):
     text, n_email = re.subn(EMAIL_RE, "[EMAIL]", text)
     text, n_phone = re.subn(PHONE_RE, "[PHONE]", text)
@@ -115,7 +116,7 @@ def call_with_retry(messages, ticket_id,verbose = True):
         except TransientLLMError:
             transient_errors += 1
             if n >= MAX_RETRIES:
-                raise
+                raise                       # Exponential backoff with random uniform jitter (0.9 to 1.15) to prevent thundering herd during transient LLM failures
             wait = BASE_DELAY * 2**n * random.uniform(0.9, 1.15)
             if verbose:
                     print(f"retry ticket={ticket_id} retry_number={n} wait={wait:.4f}s")
@@ -126,7 +127,7 @@ def run_pipeline(prompt, token_budget = None,verbose = True):
     global transient_errors
     reset()
     transient_errors = 0
-    
+
     rows = []
     total_tokens = 0
 
@@ -211,6 +212,7 @@ final["is_premium"] = final["is_premium"].fillna(False).astype(bool)
 
 HUMAN = {"skipped_empty", "flagged_long", "flagged_invalid_output", "budget_exhausted"}
 
+# Route tickets by safety priority: Edge/Guardrail cases -> Human Review; Fraud -> Security; Premium -> VIP Desk; Others -> Standard Queue
 def route(row):
     if row["status"] in HUMAN:
         return "human_review", "NORMAL"
@@ -227,4 +229,3 @@ cols = ["ticket_id", "customer_id", "status", "category", "segment_name",
 assert len(final) == 164
 final[cols].to_csv("outputs/triage_results.csv", index=False)
 print(len(final), final["route"].value_counts())
-

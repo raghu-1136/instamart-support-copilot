@@ -19,6 +19,7 @@ rfm = completed.groupby("customer_id").agg(
 
 snapshot = pd.Timestamp("2025-10-01 00:00:00")
 
+# Calculate Recency as integer days between fixed snapshot 2025-10-01 00:00:00 and most recent completed order
 rfm["recency"] = (snapshot - rfm["last_order_ts"]).dt.days
 
 rfm = rfm.drop(columns="last_order_ts").reset_index()
@@ -28,7 +29,7 @@ rfm = rfm[["customer_id", "recency", "frequency", "monetary"]]
 print(len(rfm))                                   # 1175
 print(round(rfm["recency"].median(),2),round(rfm["recency"].min(),2),round(rfm["recency"].max(),2) )                # median 19, min 0, max 180
 print(round(rfm["frequency"].mean(),2), rfm["frequency"].max())   # 9.46, 33
-print(round(rfm["monetary"].mean(),2), round(rfm["monetary"].max(),2)) 
+print(round(rfm["monetary"].mean(),2), round(rfm["monetary"].max(),2))
 
 features = ["recency",
             "frequency",
@@ -40,6 +41,7 @@ X_scaled = scaler.fit_transform(X)
 
 rows = []
 
+# Evaluate K from 2 to 8: K=4 maximizes silhouette score (0.526) and captures clean, actionable business cohorts
 for k in range(2, 9):
     kmeans = KMeans(
         n_clusters=k,   # Number of clusters
@@ -75,6 +77,7 @@ print(profile)
 
 pca = PCA(n_components=2)
 pca.fit(X_scaled)
+# Cluster numbers are arbitrary labels; designate is_premium=True strictly for the cluster with the highest mean monetary spend
 print(pca.explained_variance_ratio_, pca.explained_variance_ratio_.sum())
 
 premium_id = profile["monetary"].idxmax()
